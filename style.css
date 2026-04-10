@@ -581,3 +581,28 @@ input[type="file"] {
     font-size: 1.5rem;
   }
 }
+
+/* ===== Fixed Seat ===== */
+.seat-preview .seat-cell.fixed {
+  background: var(--accent2)33;
+  border-color: var(--accent2);
+  color: var(--accent2);
+  font-size: 0.55rem;
+  line-height: 1.1;
+  padding: 2px;
+  overflow: hidden;
+}
+.seat-map .seat.fixed {
+  border-color: var(--accent2);
+  background: var(--accent2)22;
+  color: var(--accent2);
+  font-weight: 700;
+}
+.seat-map .seat.fixed::before {
+  content: "📌固定";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 0.55rem;
+  color: var(--accent2);
+}
