@@ -1,0 +1,268 @@
+// ===== STATE =====
+let seatGrid = [];
+let students = [];
+let cols = 6, rows = 7;
+let availableSeats = [];
+let assignedSeats = {};
+let currentIdx = 0;
+let mode = 'fancy';
+let isSpinning = false;
+
+// ===== AUDIO =====
+let audioCtx;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playTick() {
+  try {
+    const ctx = getAudio();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 800 + Math.random() * 600;
+    o.type = 'sine'; g.gain.value = 0.08;
+    o.start(); o.stop(ctx.currentTime + 0.04);
+  } catch (e) {}
+}
+function playFanfare() {
+  try {
+    const ctx = getAudio();
+    [523, 659, 784, 1047].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = f; o.type = 'triangle';
+      g.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.5);
+      o.start(ctx.currentTime + i * 0.15);
+      o.stop(ctx.currentTime + i * 0.15 + 0.5);
+    });
+  } catch (e) {}
+}
+function playSimpleBeep() {
+  try {
+    const ctx = getAudio();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; o.type = 'sine'; g.gain.value = 0.1;
+    o.start(); o.stop(ctx.currentTime + 0.12);
+  } catch (e) {}
+}
+
+// ===== TABS =====
+function showTab(tab) {
+  document.getElementById('setup-tab').style.display = tab === 'setup' ? 'block' : 'none';
+  document.getElementById('lottery-tab').style.display = tab === 'lottery' ? 'flex' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0 && tab === 'setup') || (i === 1 && tab === 'lottery'));
+  });
+}
+
+// ===== SETUP: SEAT PREVIEW =====
+function generatePreview() {
+  cols = Math.max(1, Math.min(12, parseInt(document.getElementById('cols').value) || 6));
+  rows = Math.max(1, Math.min(12, parseInt(document.getElementById('rows').value) || 7));
+  seatGrid = [];
+  for (let r = 0; r < rows; r++) {
+    seatGrid[r] = [];
+    for (let c = 0; c < cols; c++) seatGrid[r][c] = true;
+  }
+  renderPreview();
+}
+function renderPreview() {
+  const el = document.getElementById('seat-preview');
+  el.style.gridTemplateColumns = `repeat(${cols}, 50px)`;
+  let html = ''; let num = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const active = seatGrid[r][c];
+      if (active) num++;
+      html += `<div class="seat-cell ${active ? '' : 'disabled'}" onclick="toggleSeat(${r},${c})">${active ? num : '×'}</div>`;
+    }
+  }
+  el.innerHTML = html;
+  const total = seatGrid.flat().filter(Boolean).length;
+  document.getElementById('active-count').textContent = `有効な席: ${total}席`;
+}
+function toggleSeat(r, c) { seatGrid[r][c] = !seatGrid[r][c]; renderPreview(); }
+
+// ===== CSV =====
+const csvDrop = document.getElementById('csv-drop');
+csvDrop.addEventListener('dragover', e => { e.preventDefault(); csvDrop.style.borderColor = 'var(--accent)'; });
+csvDrop.addEventListener('dragleave', () => { csvDrop.style.borderColor = ''; });
+csvDrop.addEventListener('drop', e => {
+  e.preventDefault(); csvDrop.style.borderColor = '';
+  if (e.dataTransfer.files.length) readCSVFile(e.dataTransfer.files[0]);
+});
+function handleCSV(input) { if (input.files.length) readCSVFile(input.files[0]); }
+function readCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => parseCSV(e.target.result);
+  reader.readAsText(file, 'UTF-8');
+}
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  students = [];
+  for (let i = 0; i < lines.length; i++) {
+    const csvCols = lines[i].split(',');
+    const name = (csvCols[0] || '').trim().replace(/^["']|["']$/g, '');
+    if (!name) continue;
+    if (i === 0 && /^(名前|氏名|Name|生徒|番号|No)/i.test(name)) continue;
+    students.push(name);
+  }
+  document.getElementById('csv-status').textContent = `${students.length}人の生徒を読み込みました`;
+  document.getElementById('csv-drop').innerHTML = `✅ ${students.length}人読み込み済み（クリックで再選択）`;
+  document.getElementById('csv-drop').classList.add('has-data');
+  document.getElementById('student-preview').innerHTML =
+    students.map((s, i) => `<span style="margin-right:0.8rem;">${i + 1}. ${s}</span>`).join('');
+}
+
+// ===== START LOTTERY =====
+function startLottery() {
+  const totalSeats = seatGrid.flat().filter(Boolean).length;
+  if (students.length === 0) return alert('生徒名簿を読み込んでください');
+  if (students.length > totalSeats) return alert(`生徒数(${students.length})が席数(${totalSeats})より多いです。`);
+  availableSeats = []; let num = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (seatGrid[r][c]) availableSeats.push({ r, c, num: ++num, taken: false, student: null });
+    }
+  }
+  assignedSeats = {}; currentIdx = 0;
+  showTab('lottery'); renderSeatMap(); renderQueue(); showCurrentStudent(); updateProgress();
+  document.getElementById('slot-num').textContent = '？';
+  document.getElementById('slot-num').classList.remove('spinning');
+  document.getElementById('go-btn').disabled = false;
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('mode-fancy').classList.toggle('active', m === 'fancy');
+  document.getElementById('mode-simple').classList.toggle('active', m === 'simple');
+}
+
+// ===== SEAT MAP =====
+function renderSeatMap() {
+  const el = document.getElementById('seat-map');
+  const cellW = Math.max(55, Math.min(85, Math.floor(600 / cols)));
+  el.style.gridTemplateColumns = `repeat(${cols}, ${cellW}px)`;
+  let html = ''; let num = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!seatGrid[r][c]) { html += `<div class="seat disabled"></div>`; continue; }
+      num++;
+      const seat = availableSeats.find(s => s.r === r && s.c === c);
+      let cls = 'seat'; let content = num;
+      if (seat && seat.taken) { cls += ' taken'; content = seat.student; }
+      html += `<div class="${cls}" id="seat-${r}-${c}" style="min-width:${cellW}px">${content}</div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+function highlightSeat(r, c) {
+  const el = document.getElementById(`seat-${r}-${c}`);
+  if (el) el.classList.add('highlight');
+}
+function unhighlightAll() {
+  document.querySelectorAll('.seat.highlight').forEach(e => e.classList.remove('highlight'));
+}
+
+// ===== QUEUE =====
+function renderQueue() {
+  const el = document.getElementById('queue'); let html = '';
+  for (let i = 0; i < students.length; i++) {
+    let cls = 'queue-item'; let seatText = '—';
+    if (assignedSeats[i] !== undefined) { cls += ' done'; seatText = `席${assignedSeats[i].num}`; }
+    else if (i === currentIdx) { cls += ' current'; seatText = '◀ 次'; }
+    html += `<div class="${cls}"><span>${i + 1}. ${students[i]}</span><span class="q-seat">${seatText}</span></div>`;
+  }
+  el.innerHTML = html;
+}
+function showCurrentStudent() {
+  if (currentIdx >= students.length) {
+    document.getElementById('cur-name').textContent = '全員完了！';
+    document.getElementById('cur-number').textContent = '';
+    document.getElementById('go-btn').disabled = true;
+    document.getElementById('skip-btn').style.display = 'none';
+    showComplete(); return;
+  }
+  document.getElementById('cur-name').textContent = students[currentIdx];
+  document.getElementById('cur-number').textContent = `${currentIdx + 1}番目 / ${students.length}人`;
+  document.getElementById('go-btn').disabled = false;
+}
+function updateProgress() {
+  const done = Object.keys(assignedSeats).length;
+  const pct = students.length > 0 ? (done / students.length * 100) : 0;
+  document.getElementById('progress').style.width = pct + '%';
+}
+
+// ===== DRAW =====
+async function drawSeat() {
+  if (isSpinning || currentIdx >= students.length) return;
+  isSpinning = true;
+  document.getElementById('go-btn').disabled = true;
+  unhighlightAll();
+  const free = availableSeats.filter(s => !s.taken);
+  const chosen = free[Math.floor(Math.random() * free.length)];
+  if (mode === 'fancy') await fancySpin(free, chosen);
+  else await simpleDraw(chosen);
+  chosen.taken = true; chosen.student = students[currentIdx];
+  assignedSeats[currentIdx] = chosen;
+  renderSeatMap(); highlightSeat(chosen.r, chosen.c); renderQueue(); updateProgress();
+  if (mode === 'fancy') { playFanfare(); spawnConfetti(8); } else { playSimpleBeep(); }
+  await sleep(mode === 'fancy' ? 1500 : 600);
+  unhighlightAll(); renderSeatMap();
+  currentIdx++; showCurrentStudent(); renderQueue();
+  isSpinning = false;
+}
+async function fancySpin(free, chosen) {
+  const slotEl = document.getElementById('slot-num');
+  slotEl.classList.add('spinning');
+  const totalTicks = 25 + Math.floor(Math.random() * 10);
+  for (let i = 0; i < totalTicks; i++) {
+    const rand = free[Math.floor(Math.random() * free.length)];
+    slotEl.textContent = rand.num; playTick();
+    const delay = i < totalTicks - 8 ? 60 : 60 + (i - (totalTicks - 8)) * 40;
+    await sleep(delay);
+  }
+  slotEl.textContent = chosen.num;
+  slotEl.classList.remove('spinning');
+}
+async function simpleDraw(chosen) {
+  const slotEl = document.getElementById('slot-num');
+  slotEl.textContent = '…'; await sleep(200);
+  slotEl.textContent = chosen.num;
+}
+function skipStudent() {
+  if (isSpinning || currentIdx >= students.length) return;
+  currentIdx++; showCurrentStudent(); renderQueue();
+}
+function showComplete() {
+  const ctrl = document.querySelector('.control-area');
+  ctrl.innerHTML = `
+    <div class="complete-banner">
+      <h2>🎉 席替え完了！</h2>
+      <p style="color:var(--text-dim)">全員の席が決まりました</p>
+    </div>
+    <button class="btn btn-secondary" onclick="location.reload()">🔄 最初からやり直す</button>
+  `;
+  if (mode === 'fancy') for (let i = 0; i < 5; i++) setTimeout(() => spawnConfetti(15), i * 400);
+}
+function spawnConfetti(n) {
+  const colors = ['#00e5a0', '#00b4d8', '#ffd700', '#ff6b6b', '#c084fc', '#fff'];
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.width = (6 + Math.random() * 8) + 'px';
+    el.style.height = (6 + Math.random() * 8) + 'px';
+    el.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+    el.style.animationDelay = (Math.random() * 0.5) + 's';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ===== INIT =====
+generatePreview();
