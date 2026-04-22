@@ -7,15 +7,15 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
+ 
 <h1>席替えガチャ</h1>
 <p class="subtitle">ボタンを押して運命の席を決めよう！</p>
-
+ 
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('setup')">⚙ 設定</button>
   <button class="tab-btn" onclick="showTab('lottery')">🎲 席替え開始</button>
 </div>
-
+ 
 <!-- ===== SETUP ===== -->
 <div id="setup-tab" class="setup-panel">
   <div class="setup-section">
@@ -32,7 +32,7 @@
     <div id="seat-preview" class="seat-preview"></div>
     <p id="active-count" class="student-count"></p>
   </div>
-
+ 
   <div class="setup-section">
     <h2>📋 生徒名簿（CSV）</h2>
     <div class="csv-area" id="csv-drop" onclick="document.getElementById('csv-file').click()">
@@ -43,12 +43,12 @@
     <p id="csv-status" class="student-count"></p>
     <div id="student-preview" style="margin-top:0.5rem; font-size:0.85rem; color:var(--text-dim); max-height:120px; overflow-y:auto;"></div>
   </div>
-
+ 
   <div style="text-align:center; margin-top:1rem; margin-bottom:2rem;">
     <button class="btn btn-primary" style="font-size:1.1rem; padding:0.8rem 3rem;" onclick="startLottery()">🎲 席替え開始！</button>
   </div>
 </div>
-
+ 
 <!-- ===== LOTTERY ===== -->
 <div id="lottery-tab" class="lottery-panel" style="display:none;">
   <div class="seat-map-container">
@@ -70,7 +70,8 @@
       <div class="slot-label">あなたの席は…</div>
       <div class="slot-number" id="slot-num">？</div>
     </div>
-    <button class="big-button" id="go-btn" onclick="drawSeat()">席を決める！</button>
+    <button class="big-button" id="go-btn" onclick="drawSeat()">🎲 一人ずつ席を決める！</button>
+    <button class="big-button" id="bulk-btn" onclick="bulkAssign()" style="background:linear-gradient(135deg, var(--accent2), #7c3aed); margin-top:0.5rem;">⚡ 一括で全員決定！</button>
     <button class="btn btn-secondary btn-small" onclick="skipStudent()" id="skip-btn">▶ スキップ（欠席）</button>
     <div class="queue-list">
       <h4>📝 残りの生徒</h4>
@@ -78,7 +79,7 @@
     </div>
   </div>
 </div>
-
+ 
 <script src="script.js"></script>
 </body>
 </html>
