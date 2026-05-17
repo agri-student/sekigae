@@ -1,21 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&family=Dela+Gothic+One&display=swap');
 
 :root {
-  --bg: #0f1923;
-  --card: #1a2a3a;
-  --card-hover: #243b52;
-  --accent: #00e5a0;
-  --accent2: #00b4d8;
-  --accent3: #ff6b6b;
-  --text: #e8f0f8;
-  --text-dim: #7a8fa0;
-  --disabled: #2a3a4a;
-  --seat-empty: #1e3044;
-  --seat-taken: #00e5a022;
-  --seat-border-taken: #00e5a0;
-  --seat-disabled-bg: #111920;
-  --seat-highlight: #00e5a0;
-  --gold: #ffd700;
+  --bg: #f5f7fa;
+  --card: #ffffff;
+  --card-hover: #e8ecf1;
+  --accent: #0d9668;
+  --accent2: #0284c7;
+  --accent3: #dc2626;
+  --text: #1e293b;
+  --text-dim: #64748b;
+  --disabled: #cbd5e1;
+  --seat-empty: #e2e8f0;
+  --seat-taken: #0d966822;
+  --seat-border-taken: #0d9668;
+  --seat-disabled-bg: #f1f5f9;
+  --seat-highlight: #0d9668;
+  --gold: #d97706;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -136,6 +136,7 @@ h1 {
   border-radius: 16px;
   padding: 1.5rem;
   margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .setup-section h2 {
@@ -384,6 +385,7 @@ input[type="file"] {
   padding: 1.2rem 1.5rem;
   text-align: center;
   width: 100%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .current-student .label {
@@ -580,29 +582,4 @@ input[type="file"] {
   h1 {
     font-size: 1.5rem;
   }
-}
-
-/* ===== Fixed Seat ===== */
-.seat-preview .seat-cell.fixed {
-  background: var(--accent2)33;
-  border-color: var(--accent2);
-  color: var(--accent2);
-  font-size: 0.55rem;
-  line-height: 1.1;
-  padding: 2px;
-  overflow: hidden;
-}
-.seat-map .seat.fixed {
-  border-color: var(--accent2);
-  background: var(--accent2)22;
-  color: var(--accent2);
-  font-weight: 700;
-}
-.seat-map .seat.fixed::before {
-  content: "📌固定";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  font-size: 0.55rem;
-  color: var(--accent2);
 }
