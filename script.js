@@ -7,7 +7,7 @@ let assignedSeats = {};
 let currentIdx = 0;
 let mode = 'fancy';
 let isSpinning = false;
- 
+
 // ===== AUDIO =====
 let audioCtx;
 function getAudio() {
@@ -47,7 +47,7 @@ function playSimpleBeep() {
     o.start(); o.stop(ctx.currentTime + 0.12);
   } catch (e) {}
 }
- 
+
 // ===== TABS =====
 function showTab(tab) {
   document.getElementById('setup-tab').style.display = tab === 'setup' ? 'block' : 'none';
@@ -56,7 +56,7 @@ function showTab(tab) {
     b.classList.toggle('active', (i === 0 && tab === 'setup') || (i === 1 && tab === 'lottery'));
   });
 }
- 
+
 // ===== SETUP: SEAT PREVIEW =====
 function generatePreview() {
   cols = Math.max(1, Math.min(12, parseInt(document.getElementById('cols').value) || 6));
@@ -84,7 +84,7 @@ function renderPreview() {
   document.getElementById('active-count').textContent = `有効な席: ${total}席`;
 }
 function toggleSeat(r, c) { seatGrid[r][c] = !seatGrid[r][c]; renderPreview(); }
- 
+
 // ===== CSV =====
 const csvDrop = document.getElementById('csv-drop');
 csvDrop.addEventListener('dragover', e => { e.preventDefault(); csvDrop.style.borderColor = 'var(--accent)'; });
@@ -115,7 +115,7 @@ function parseCSV(text) {
   document.getElementById('student-preview').innerHTML =
     students.map((s, i) => `<span style="margin-right:0.8rem;">${i + 1}. ${s}</span>`).join('');
 }
- 
+
 // ===== START LOTTERY =====
 function startLottery() {
   const totalSeats = seatGrid.flat().filter(Boolean).length;
@@ -133,13 +133,13 @@ function startLottery() {
   document.getElementById('slot-num').classList.remove('spinning');
   document.getElementById('go-btn').disabled = false;
 }
- 
+
 function setMode(m) {
   mode = m;
   document.getElementById('mode-fancy').classList.toggle('active', m === 'fancy');
   document.getElementById('mode-simple').classList.toggle('active', m === 'simple');
 }
- 
+
 // ===== SEAT MAP =====
 function renderSeatMap() {
   const el = document.getElementById('seat-map');
@@ -165,7 +165,7 @@ function highlightSeat(r, c) {
 function unhighlightAll() {
   document.querySelectorAll('.seat.highlight').forEach(e => e.classList.remove('highlight'));
 }
- 
+
 // ===== QUEUE =====
 function renderQueue() {
   const el = document.getElementById('queue'); let html = '';
@@ -194,7 +194,7 @@ function updateProgress() {
   const pct = students.length > 0 ? (done / students.length * 100) : 0;
   document.getElementById('progress').style.width = pct + '%';
 }
- 
+
 // ===== DRAW =====
 async function drawSeat() {
   if (isSpinning || currentIdx >= students.length) return;
@@ -216,7 +216,7 @@ async function drawSeat() {
   isSpinning = false;
   if (currentIdx < students.length) document.getElementById('bulk-btn').disabled = false;
 }
- 
+
 // ===== BULK ASSIGN =====
 async function bulkAssign() {
   if (isSpinning) return;
@@ -225,7 +225,7 @@ async function bulkAssign() {
   document.getElementById('bulk-btn').disabled = true;
   document.getElementById('skip-btn').style.display = 'none';
   unhighlightAll();
- 
+
   // Collect remaining students and shuffle their seat assignments
   const remaining = [];
   for (let i = currentIdx; i < students.length; i++) remaining.push(i);
@@ -235,7 +235,7 @@ async function bulkAssign() {
     const j = Math.floor(Math.random() * (i + 1));
     [free[i], free[j]] = [free[j], free[i]];
   }
- 
+
   if (mode === 'fancy') {
     // Fancy: reveal one by one quickly with animation
     const slotEl = document.getElementById('slot-num');
@@ -252,7 +252,7 @@ async function bulkAssign() {
       }
       slotEl.textContent = seat.num;
       slotEl.classList.remove('spinning');
- 
+
       // Assign
       seat.taken = true; seat.student = students[si];
       assignedSeats[si] = seat;
@@ -278,7 +278,7 @@ async function bulkAssign() {
     renderSeatMap(); renderQueue(); updateProgress();
     playSimpleBeep();
   }
- 
+
   showCurrentStudent();
   isSpinning = false;
 }
@@ -316,7 +316,7 @@ function showComplete() {
   if (mode === 'fancy') for (let i = 0; i < 5; i++) setTimeout(() => spawnConfetti(15), i * 400);
 }
 function spawnConfetti(n) {
-  const colors = ['#00e5a0', '#00b4d8', '#ffd700', '#ff6b6b', '#c084fc', '#fff'];
+  const colors = ['#0d9668', '#0284c7', '#d97706', '#dc2626', '#7c3aed', '#f59e0b'];
   for (let i = 0; i < n; i++) {
     const el = document.createElement('div');
     el.className = 'confetti';
@@ -331,6 +331,6 @@ function spawnConfetti(n) {
   }
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
- 
+
 // ===== INIT =====
 generatePreview();
