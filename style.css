@@ -583,3 +583,40 @@ input[type="file"] {
     font-size: 1.5rem;
   }
 }
+
+/* ===== Fixed Seat (Setup Preview) ===== */
+.seat-preview .seat-cell.fixed {
+  background: var(--accent2)18;
+  border-color: var(--accent2);
+  color: var(--accent2);
+  font-size: 0.6rem;
+  line-height: 1.1;
+  padding: 2px;
+  overflow: hidden;
+}
+
+.seat-preview .seat-cell.fixed .fixed-name {
+  font-size: 0.5rem;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Fixed Seat (Lottery Map) ===== */
+.seat-map .seat.fixed {
+  border-color: var(--accent2);
+  background: var(--accent2)15;
+  color: var(--accent2);
+  font-weight: 700;
+  position: relative;
+}
+
+.seat-map .seat.fixed::after {
+  content: "📌固定";
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 0.5rem;
+  opacity: 0.7;
+}
