@@ -90,7 +90,7 @@ function renderPreview() {
         num++;
         content = num;
       }
-      html += `<div class="${cls}" onclick="seatClicked(${r},${c})">${content}</div>`;
+      html += `<div class="${cls}" data-r="${r}" data-c="${c}">${content}</div>`;
     }
   }
   el.innerHTML = html;
@@ -163,15 +163,19 @@ function showStudentPicker() {
   const listEl = document.getElementById('modal-student-list');
   listEl.style.display = 'flex';
   listEl.innerHTML = available.map((s, i) =>
-    `<button class="student-option" onclick="fixStudent('${s.replace(/'/g, "\\'")}')">${i + 1}. ${s}</button>`
+    `<button class="student-option" data-student="${s}">${i + 1}. ${s}</button>`
   ).join('');
 }
 
-function fixStudent(name) {
+// Event delegation for student picker
+document.getElementById('modal-student-list').addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-student]');
+  if (!btn) return;
+  const name = btn.getAttribute('data-student');
   seatGrid[selectedSeatR][selectedSeatC] = { active: true, fixed: name };
   renderPreview();
   closeSeatModal();
-}
+});
 
 // ===== CSV =====
 const csvDrop = document.getElementById('csv-drop');
@@ -449,3 +453,12 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ===== INIT =====
 generatePreview();
+
+// Event delegation for seat preview clicks
+document.getElementById('seat-preview').addEventListener('click', function(e) {
+  const cell = e.target.closest('[data-r]');
+  if (!cell) return;
+  const r = parseInt(cell.getAttribute('data-r'));
+  const c = parseInt(cell.getAttribute('data-c'));
+  seatClicked(r, c);
+});
