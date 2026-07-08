@@ -7,15 +7,15 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
- 
+
 <h1>席替えガチャ</h1>
 <p class="subtitle">ボタンを押して運命の席を決めよう！</p>
- 
+
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('setup')">⚙ 設定</button>
   <button class="tab-btn" onclick="showTab('lottery')">🎲 席替え開始</button>
 </div>
- 
+
 <!-- ===== SETUP ===== -->
 <div id="setup-tab" class="setup-panel">
   <div class="setup-section">
@@ -27,12 +27,12 @@
       <input type="number" id="rows" value="7" min="1" max="12" onchange="generatePreview()">
       <button class="btn btn-primary btn-small" onclick="generatePreview()">生成</button>
     </div>
-    <p class="hint">※ クリックで席を無効化できます（使わない席をクリック）</p>
+    <p class="hint">※ クリックで席の設定ができます（無効化 or 生徒を固定配置）<br>※ 生徒の固定配置は、先にCSVを読み込んでから行ってください</p>
     <div class="teacher-desk">黒板 ／ 教卓</div>
     <div id="seat-preview" class="seat-preview"></div>
     <p id="active-count" class="student-count"></p>
   </div>
- 
+
   <div class="setup-section">
     <h2>📋 生徒名簿（CSV）</h2>
     <div class="csv-area" id="csv-drop" onclick="document.getElementById('csv-file').click()">
@@ -43,12 +43,12 @@
     <p id="csv-status" class="student-count"></p>
     <div id="student-preview" style="margin-top:0.5rem; font-size:0.85rem; color:var(--text-dim); max-height:120px; overflow-y:auto;"></div>
   </div>
- 
+
   <div style="text-align:center; margin-top:1rem; margin-bottom:2rem;">
     <button class="btn btn-primary" style="font-size:1.1rem; padding:0.8rem 3rem;" onclick="startLottery()">🎲 席替え開始！</button>
   </div>
 </div>
- 
+
 <!-- ===== LOTTERY ===== -->
 <div id="lottery-tab" class="lottery-panel" style="display:none;">
   <div class="seat-map-container">
@@ -79,7 +79,7 @@
     </div>
   </div>
 </div>
- 
+
 <script src="script.js"></script>
 </body>
 </html>
