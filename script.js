@@ -101,6 +101,9 @@ function renderPreview() {
   document.getElementById('active-count').textContent = statusText;
 }
 
+let selectedSeatR = null;
+let selectedSeatC = null;
+
 function seatClicked(r, c) {
   const cell = seatGrid[r][c];
 
@@ -112,40 +115,62 @@ function seatClicked(r, c) {
     return;
   }
 
-  // Build menu
+  // Show modal menu
+  selectedSeatR = r;
+  selectedSeatC = c;
   const currentState = !cell.active ? '無効' : cell.fixed ? `固定（${cell.fixed}）` : '通常';
-  const choice = prompt(
-    `この席をどうしますか？\n` +
-    `現在: ${currentState}\n\n` +
-    `1: 通常の席（抽選対象）\n` +
-    `2: 使わない（無効化）\n` +
-    `3: 生徒を固定配置\n\n` +
-    `番号を入力してください:`, '1'
-  );
+  document.getElementById('modal-title').textContent = `席の設定`;
+  document.getElementById('modal-status').textContent = `現在: ${currentState}`;
+  document.getElementById('modal-student-list').style.display = 'none';
+  const btns = document.getElementById('modal-buttons');
+  btns.innerHTML = `
+    <button class="btn btn-primary" onclick="setSeatNormal()">✅ 通常の席（抽選対象）</button>
+    <button class="btn btn-danger" onclick="setSeatDisabled()">🚫 使わない（無効化）</button>
+    <button class="btn btn-secondary" onclick="showStudentPicker()" style="border-color:var(--accent2); color:var(--accent2);">👤 生徒を固定配置</button>
+  `;
+  document.getElementById('seat-modal').style.display = 'flex';
+}
 
-  if (choice === '1') {
-    cell.active = true;
-    cell.fixed = null;
-  } else if (choice === '2') {
-    cell.active = false;
-    cell.fixed = null;
-  } else if (choice === '3') {
-    // Get list of students not yet fixed elsewhere
-    const alreadyFixed = seatGrid.flat().filter(s => s.fixed).map(s => s.fixed);
-    const available = students.filter(s => !alreadyFixed.includes(s) || s === cell.fixed);
-    if (available.length === 0) {
-      alert('固定可能な生徒がいません。');
-      return;
-    }
-    const list = available.map((s, i) => `${i + 1}: ${s}`).join('\n');
-    const sel = prompt(`固定する生徒の番号を入力:\n\n${list}`, '1');
-    const idx = parseInt(sel) - 1;
-    if (idx >= 0 && idx < available.length) {
-      cell.active = true;
-      cell.fixed = available[idx];
-    }
-  }
+function closeSeatModal() {
+  document.getElementById('seat-modal').style.display = 'none';
+}
+
+function setSeatNormal() {
+  seatGrid[selectedSeatR][selectedSeatC] = { active: true, fixed: null };
   renderPreview();
+  closeSeatModal();
+}
+
+function setSeatDisabled() {
+  seatGrid[selectedSeatR][selectedSeatC] = { active: false, fixed: null };
+  renderPreview();
+  closeSeatModal();
+}
+
+function showStudentPicker() {
+  const cell = seatGrid[selectedSeatR][selectedSeatC];
+  const alreadyFixed = seatGrid.flat().filter(s => s.fixed).map(s => s.fixed);
+  const available = students.filter(s => !alreadyFixed.includes(s) || s === cell.fixed);
+
+  if (available.length === 0) {
+    alert('固定可能な生徒がいません。');
+    return;
+  }
+
+  document.getElementById('modal-buttons').innerHTML = '';
+  document.getElementById('modal-title').textContent = '固定する生徒を選択';
+  document.getElementById('modal-status').textContent = '';
+  const listEl = document.getElementById('modal-student-list');
+  listEl.style.display = 'flex';
+  listEl.innerHTML = available.map((s, i) =>
+    `<button class="student-option" onclick="fixStudent('${s.replace(/'/g, "\\'")}')">${i + 1}. ${s}</button>`
+  ).join('');
+}
+
+function fixStudent(name) {
+  seatGrid[selectedSeatR][selectedSeatC] = { active: true, fixed: name };
+  renderPreview();
+  closeSeatModal();
 }
 
 // ===== CSV =====
