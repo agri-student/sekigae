@@ -1,9 +1,10 @@
 // ===== STATE =====
-let seatGrid = [];
-let students = [];
+let seatGrid = [];       // 2D array of { active:bool, fixed:string|null }
+let students = [];        // All students from CSV
+let lotteryStudents = []; // Students participating in lottery (excluding fixed)
 let cols = 6, rows = 7;
 let availableSeats = [];
-let assignedSeats = {};
+let assignedSeats = {};   // lotteryIndex -> seat
 let currentIdx = 0;
 let mode = 'fancy';
 let isSpinning = false;
@@ -64,26 +65,88 @@ function generatePreview() {
   seatGrid = [];
   for (let r = 0; r < rows; r++) {
     seatGrid[r] = [];
-    for (let c = 0; c < cols; c++) seatGrid[r][c] = true;
+    for (let c = 0; c < cols; c++) seatGrid[r][c] = { active: true, fixed: null };
   }
   renderPreview();
 }
+
 function renderPreview() {
   const el = document.getElementById('seat-preview');
   el.style.gridTemplateColumns = `repeat(${cols}, 50px)`;
   let html = ''; let num = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const active = seatGrid[r][c];
-      if (active) num++;
-      html += `<div class="seat-cell ${active ? '' : 'disabled'}" onclick="toggleSeat(${r},${c})">${active ? num : '×'}</div>`;
+      const cell = seatGrid[r][c];
+      let cls = 'seat-cell';
+      let content = '';
+      if (!cell.active) {
+        cls += ' disabled';
+        content = '×';
+      } else if (cell.fixed) {
+        cls += ' fixed';
+        num++;
+        content = `${num}<br><span class="fixed-name">${cell.fixed}</span>`;
+      } else {
+        num++;
+        content = num;
+      }
+      html += `<div class="${cls}" onclick="seatClicked(${r},${c})">${content}</div>`;
     }
   }
   el.innerHTML = html;
-  const total = seatGrid.flat().filter(Boolean).length;
-  document.getElementById('active-count').textContent = `有効な席: ${total}席`;
+  const totalActive = seatGrid.flat().filter(s => s.active).length;
+  const totalFixed = seatGrid.flat().filter(s => s.fixed).length;
+  let statusText = `有効な席: ${totalActive}席`;
+  if (totalFixed > 0) statusText += `（うち固定: ${totalFixed}席）`;
+  document.getElementById('active-count').textContent = statusText;
 }
-function toggleSeat(r, c) { seatGrid[r][c] = !seatGrid[r][c]; renderPreview(); }
+
+function seatClicked(r, c) {
+  const cell = seatGrid[r][c];
+
+  // If no students loaded yet, just toggle active/disabled
+  if (students.length === 0) {
+    cell.active = !cell.active;
+    cell.fixed = null;
+    renderPreview();
+    return;
+  }
+
+  // Build menu
+  const currentState = !cell.active ? '無効' : cell.fixed ? `固定（${cell.fixed}）` : '通常';
+  const choice = prompt(
+    `この席をどうしますか？\n` +
+    `現在: ${currentState}\n\n` +
+    `1: 通常の席（抽選対象）\n` +
+    `2: 使わない（無効化）\n` +
+    `3: 生徒を固定配置\n\n` +
+    `番号を入力してください:`, '1'
+  );
+
+  if (choice === '1') {
+    cell.active = true;
+    cell.fixed = null;
+  } else if (choice === '2') {
+    cell.active = false;
+    cell.fixed = null;
+  } else if (choice === '3') {
+    // Get list of students not yet fixed elsewhere
+    const alreadyFixed = seatGrid.flat().filter(s => s.fixed).map(s => s.fixed);
+    const available = students.filter(s => !alreadyFixed.includes(s) || s === cell.fixed);
+    if (available.length === 0) {
+      alert('固定可能な生徒がいません。');
+      return;
+    }
+    const list = available.map((s, i) => `${i + 1}: ${s}`).join('\n');
+    const sel = prompt(`固定する生徒の番号を入力:\n\n${list}`, '1');
+    const idx = parseInt(sel) - 1;
+    if (idx >= 0 && idx < available.length) {
+      cell.active = true;
+      cell.fixed = available[idx];
+    }
+  }
+  renderPreview();
+}
 
 // ===== CSV =====
 const csvDrop = document.getElementById('csv-drop');
@@ -118,20 +181,43 @@ function parseCSV(text) {
 
 // ===== START LOTTERY =====
 function startLottery() {
-  const totalSeats = seatGrid.flat().filter(Boolean).length;
+  const totalActive = seatGrid.flat().filter(s => s.active).length;
+  const fixedNames = seatGrid.flat().filter(s => s.fixed).map(s => s.fixed);
+  const freeSeatCount = totalActive - fixedNames.length;
+  lotteryStudents = students.filter(s => !fixedNames.includes(s));
+
   if (students.length === 0) return alert('生徒名簿を読み込んでください');
-  if (students.length > totalSeats) return alert(`生徒数(${students.length})が席数(${totalSeats})より多いです。`);
-  availableSeats = []; let num = 0;
+  if (lotteryStudents.length > freeSeatCount) {
+    return alert(`抽選対象の生徒(${lotteryStudents.length}人)が空き席(${freeSeatCount}席)より多いです。\n席を増やすか固定席を調整してください。`);
+  }
+
+  // Build seat list
+  availableSeats = [];
+  let num = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (seatGrid[r][c]) availableSeats.push({ r, c, num: ++num, taken: false, student: null });
+      const cell = seatGrid[r][c];
+      if (!cell.active) continue;
+      num++;
+      if (cell.fixed) {
+        availableSeats.push({ r, c, num, taken: true, student: cell.fixed, isFixed: true });
+      } else {
+        availableSeats.push({ r, c, num, taken: false, student: null, isFixed: false });
+      }
     }
   }
-  assignedSeats = {}; currentIdx = 0;
-  showTab('lottery'); renderSeatMap(); renderQueue(); showCurrentStudent(); updateProgress();
+
+  assignedSeats = {};
+  currentIdx = 0;
+  showTab('lottery');
+  renderSeatMap();
+  renderQueue();
+  showCurrentStudent();
+  updateProgress();
   document.getElementById('slot-num').textContent = '？';
   document.getElementById('slot-num').classList.remove('spinning');
   document.getElementById('go-btn').disabled = false;
+  document.getElementById('bulk-btn').disabled = false;
 }
 
 function setMode(m) {
@@ -148,16 +234,24 @@ function renderSeatMap() {
   let html = ''; let num = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (!seatGrid[r][c]) { html += `<div class="seat disabled"></div>`; continue; }
+      const cell = seatGrid[r][c];
+      if (!cell.active) { html += `<div class="seat disabled"></div>`; continue; }
       num++;
       const seat = availableSeats.find(s => s.r === r && s.c === c);
       let cls = 'seat'; let content = num;
-      if (seat && seat.taken) { cls += ' taken'; content = seat.student; }
+      if (seat && seat.taken && seat.isFixed) {
+        cls += ' taken fixed';
+        content = seat.student;
+      } else if (seat && seat.taken) {
+        cls += ' taken';
+        content = seat.student;
+      }
       html += `<div class="${cls}" id="seat-${r}-${c}" style="min-width:${cellW}px">${content}</div>`;
     }
   }
   el.innerHTML = html;
 }
+
 function highlightSeat(r, c) {
   const el = document.getElementById(`seat-${r}-${c}`);
   if (el) el.classList.add('highlight');
@@ -169,44 +263,47 @@ function unhighlightAll() {
 // ===== QUEUE =====
 function renderQueue() {
   const el = document.getElementById('queue'); let html = '';
-  for (let i = 0; i < students.length; i++) {
+  for (let i = 0; i < lotteryStudents.length; i++) {
     let cls = 'queue-item'; let seatText = '—';
     if (assignedSeats[i] !== undefined) { cls += ' done'; seatText = `席${assignedSeats[i].num}`; }
     else if (i === currentIdx) { cls += ' current'; seatText = '◀ 次'; }
-    html += `<div class="${cls}"><span>${i + 1}. ${students[i]}</span><span class="q-seat">${seatText}</span></div>`;
+    html += `<div class="${cls}"><span>${i + 1}. ${lotteryStudents[i]}</span><span class="q-seat">${seatText}</span></div>`;
   }
   el.innerHTML = html;
 }
+
 function showCurrentStudent() {
-  if (currentIdx >= students.length) {
+  if (currentIdx >= lotteryStudents.length) {
     document.getElementById('cur-name').textContent = '全員完了！';
     document.getElementById('cur-number').textContent = '';
     document.getElementById('go-btn').disabled = true;
+    document.getElementById('bulk-btn').disabled = true;
     document.getElementById('skip-btn').style.display = 'none';
     showComplete(); return;
   }
-  document.getElementById('cur-name').textContent = students[currentIdx];
-  document.getElementById('cur-number').textContent = `${currentIdx + 1}番目 / ${students.length}人`;
+  document.getElementById('cur-name').textContent = lotteryStudents[currentIdx];
+  document.getElementById('cur-number').textContent = `${currentIdx + 1}番目 / ${lotteryStudents.length}人`;
   document.getElementById('go-btn').disabled = false;
 }
+
 function updateProgress() {
   const done = Object.keys(assignedSeats).length;
-  const pct = students.length > 0 ? (done / students.length * 100) : 0;
+  const pct = lotteryStudents.length > 0 ? (done / lotteryStudents.length * 100) : 0;
   document.getElementById('progress').style.width = pct + '%';
 }
 
-// ===== DRAW =====
+// ===== DRAW (one at a time) =====
 async function drawSeat() {
-  if (isSpinning || currentIdx >= students.length) return;
+  if (isSpinning || currentIdx >= lotteryStudents.length) return;
   isSpinning = true;
   document.getElementById('go-btn').disabled = true;
   document.getElementById('bulk-btn').disabled = true;
   unhighlightAll();
-  const free = availableSeats.filter(s => !s.taken);
+  const free = availableSeats.filter(s => !s.taken && !s.isFixed);
   const chosen = free[Math.floor(Math.random() * free.length)];
   if (mode === 'fancy') await fancySpin(free, chosen);
   else await simpleDraw(chosen);
-  chosen.taken = true; chosen.student = students[currentIdx];
+  chosen.taken = true; chosen.student = lotteryStudents[currentIdx];
   assignedSeats[currentIdx] = chosen;
   renderSeatMap(); highlightSeat(chosen.r, chosen.c); renderQueue(); updateProgress();
   if (mode === 'fancy') { playFanfare(); spawnConfetti(8); } else { playSimpleBeep(); }
@@ -214,7 +311,7 @@ async function drawSeat() {
   unhighlightAll(); renderSeatMap();
   currentIdx++; showCurrentStudent(); renderQueue();
   isSpinning = false;
-  if (currentIdx < students.length) document.getElementById('bulk-btn').disabled = false;
+  if (currentIdx < lotteryStudents.length) document.getElementById('bulk-btn').disabled = false;
 }
 
 // ===== BULK ASSIGN =====
@@ -226,23 +323,20 @@ async function bulkAssign() {
   document.getElementById('skip-btn').style.display = 'none';
   unhighlightAll();
 
-  // Collect remaining students and shuffle their seat assignments
   const remaining = [];
-  for (let i = currentIdx; i < students.length; i++) remaining.push(i);
-  const free = availableSeats.filter(s => !s.taken);
-  // Shuffle free seats (Fisher-Yates)
+  for (let i = currentIdx; i < lotteryStudents.length; i++) remaining.push(i);
+  const free = availableSeats.filter(s => !s.taken && !s.isFixed);
+  // Shuffle (Fisher-Yates)
   for (let i = free.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [free[i], free[j]] = [free[j], free[i]];
   }
 
   if (mode === 'fancy') {
-    // Fancy: reveal one by one quickly with animation
     const slotEl = document.getElementById('slot-num');
     for (let i = 0; i < remaining.length; i++) {
       const si = remaining[i];
       const seat = free[i];
-      // Brief spin
       slotEl.classList.add('spinning');
       for (let t = 0; t < 6; t++) {
         const rand = free[Math.floor(Math.random() * free.length)];
@@ -252,36 +346,32 @@ async function bulkAssign() {
       }
       slotEl.textContent = seat.num;
       slotEl.classList.remove('spinning');
-
-      // Assign
-      seat.taken = true; seat.student = students[si];
+      seat.taken = true; seat.student = lotteryStudents[si];
       assignedSeats[si] = seat;
       currentIdx = si + 1;
-      document.getElementById('cur-name').textContent = students[si];
-      document.getElementById('cur-number').textContent = `${si + 1}番目 / ${students.length}人`;
+      document.getElementById('cur-name').textContent = lotteryStudents[si];
+      document.getElementById('cur-number').textContent = `${si + 1}番目 / ${lotteryStudents.length}人`;
       renderSeatMap(); highlightSeat(seat.r, seat.c); renderQueue(); updateProgress();
       playSimpleBeep();
       await sleep(350);
       unhighlightAll(); renderSeatMap();
     }
-    playFanfare();
-    spawnConfetti(20);
+    playFanfare(); spawnConfetti(20);
   } else {
-    // Simple: assign all at once instantly
     for (let i = 0; i < remaining.length; i++) {
       const si = remaining[i];
       const seat = free[i];
-      seat.taken = true; seat.student = students[si];
+      seat.taken = true; seat.student = lotteryStudents[si];
       assignedSeats[si] = seat;
     }
-    currentIdx = students.length;
+    currentIdx = lotteryStudents.length;
     renderSeatMap(); renderQueue(); updateProgress();
     playSimpleBeep();
   }
-
   showCurrentStudent();
   isSpinning = false;
 }
+
 async function fancySpin(free, chosen) {
   const slotEl = document.getElementById('slot-num');
   slotEl.classList.add('spinning');
@@ -301,7 +391,7 @@ async function simpleDraw(chosen) {
   slotEl.textContent = chosen.num;
 }
 function skipStudent() {
-  if (isSpinning || currentIdx >= students.length) return;
+  if (isSpinning || currentIdx >= lotteryStudents.length) return;
   currentIdx++; showCurrentStudent(); renderQueue();
 }
 function showComplete() {
